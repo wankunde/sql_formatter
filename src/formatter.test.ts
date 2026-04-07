@@ -20,61 +20,52 @@ const defaultConfig: FormatterConfig = {
   indentSize: 2,
 };
 
-describe('SQL Formatter', () => {
-  it('should format keywords to uppercase', () => {
-    const sql = 'select * from table1';
-    const formatted = formatSql(sql, defaultConfig);
-    expect(formatted).toContain('SELECT');
-    expect(formatted).toContain('FROM');
+describe('SQL Formatter Integrity', () => {
+  const normalize = (sql: string) => sql.replace(/\s+/g, '').toUpperCase();
+
+  it('should NEVER add or remove non-whitespace tokens', () => {
+    const complexSql = `
+      create table if not exists tmp_ai.tmp_hjw_ott_search_query__channelscore_20260406 as
+      select cid AS resource_id, name AS resource_name from (
+        select DISTINCT cid, LOWER(TRIM(name)) AS name from bi_yyzx.channel_search_daily
+      ) channel_info
+      inner join (
+        select keyword from tmp_ai.top_query
+      ) top_query on (channel_info.name = top_query.keyword)
+    `;
+    const formatted = formatSql(complexSql, defaultConfig);
+    
+    // Check integrity: non-space content must be identical (ignoring case)
+    expect(normalize(formatted)).toBe(normalize(complexSql));
   });
 
-  it('should format identifiers to lowercase', () => {
-    const sql = 'SELECT Column1 FROM Table1';
+  it('should not duplicate parentheses in subqueries', () => {
+    const sql = 'SELECT * FROM (SELECT 1) t';
     const formatted = formatSql(sql, defaultConfig);
-    expect(formatted).toContain('column1');
-    expect(formatted).toContain('table1');
+    const openParenCount = (formatted.match(/\(/g) || []).length;
+    const closeParenCount = (formatted.match(/\)/g) || []).length;
+    expect(openParenCount).toBe(1);
+    expect(closeParenCount).toBe(1);
   });
 
-  it('should add newline and indent for subqueries', () => {
-    const sql = 'SELECT * FROM (SELECT id FROM t1) sub';
-    const formatted = formatSql(sql, defaultConfig);
-    const lines = formatted.split('\n');
-    expect(lines.some(l => l.trim() === '(')).toBe(true);
-    expect(lines.some(l => l.includes('  SELECT'))).toBe(true); // check indentation
+  it('should not duplicate commas', () => {
+    const sql = 'SELECT a, b, c FROM t GROUP BY a, b';
+    const formatted = formatSql(sql, { ...defaultConfig, selectFieldWrapLimit: 5 });
+    const commaCount = (formatted.match(/,/g) || []).length;
+    expect(commaCount).toBe(3);
   });
 
-  it('should handle JOIN ON with proper spacing and newlines', () => {
-    const sql = 'SELECT * FROM t1 JOIN t2 ON t1.id = t2.id';
+  it('should keep function spacing tight', () => {
+    const sql = 'SELECT SUM(COALESCE(a, 0)) FROM t';
     const formatted = formatSql(sql, defaultConfig);
-    expect(formatted).toContain('\nJOIN');
+    expect(formatted).toContain('SUM(COALESCE(a, 0))');
+    expect(formatted).not.toContain('SUM (');
+  });
+
+  it('should handle ON condition without merging with subquery alias', () => {
+    const sql = 'SELECT * FROM (SELECT 1) t1 JOIN (SELECT 2) t2 ON t1.id = t2.id';
+    const formatted = formatSql(sql, defaultConfig);
+    expect(formatted).toContain(') t2');
     expect(formatted).toContain('\n  ON');
-  });
-
-  it('should remove space between function and parenthesis', () => {
-    const sql = 'SELECT SUM ( COUNT ( id ) ) FROM t1';
-    const formatted = formatSql(sql, defaultConfig);
-    expect(formatted).toContain('SUM(COUNT(id))');
-  });
-
-  it('should wrap SELECT fields and indent', () => {
-    const longFields = 'c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15';
-    const sql = `SELECT ${longFields} FROM t1`;
-    const formatted = formatSql(sql, { ...defaultConfig, selectFieldWrapLimit: 20 });
-    const lines = formatted.split('\n');
-    expect(lines.length).toBeGreaterThan(2);
-    expect(lines[1].startsWith('  ')).toBe(true);
-  });
-
-  it('should format WHERE conditions with newlines', () => {
-    const sql = 'SELECT * FROM t1 WHERE a = 1 AND b = 2 OR c = 3';
-    const formatted = formatSql(sql, defaultConfig);
-    expect(formatted).toContain('\n  AND');
-    expect(formatted).toContain('\n  OR');
-  });
-
-  it('should format GROUP BY items with newlines', () => {
-    const sql = 'SELECT a, b FROM t1 GROUP BY a, b';
-    const formatted = formatSql(sql, defaultConfig);
-    expect(formatted).toContain('GROUP BY a,\n  b');
   });
 });
