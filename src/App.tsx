@@ -179,8 +179,11 @@ const App: React.FC = () => {
             className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm animate-fade-in" 
             onClick={() => setShowSettings(false)} 
           />
-          <div className="relative w-full max-w-sm bg-white h-full shadow-2xl flex flex-col animate-in-right border-l border-slate-200 z-10">
-            <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/80">
+          <div 
+            className="relative w-full max-w-sm h-full shadow-2xl flex flex-col animate-in-right border-l border-slate-200 z-10"
+            style={{ backgroundColor: '#ffffff', opacity: 1 }}
+          >
+            <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 bg-indigo-600 rounded flex items-center justify-center text-white">
                   <Settings2 size={16} />

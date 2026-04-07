@@ -84,4 +84,10 @@ describe('SQL Formatter Integrity', () => {
     const formatted = formatSql(sql, defaultConfig);
     expect(formatted).toContain('ON (');
   });
+
+  it('should put subquery parenthesis on the same line as FROM', () => {
+    const sql = 'SELECT * FROM (SELECT id FROM t1) sub';
+    const formatted = formatSql(sql, defaultConfig);
+    expect(formatted).toContain('FROM (');
+  });
 });

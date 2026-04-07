@@ -73,7 +73,11 @@ export function formatSql(sql: string, config: FormatterConfig): string {
       const isSubquery = nextToken === 'SELECT';
       if (isSubquery) {
         parenStack.push({ type: 'subquery', indent: indentLevel });
-        result = result.trimEnd() + "\n" + getIndent() + "(";
+        if (lastToken.toUpperCase() === 'FROM') {
+          result = result.trimEnd() + " (";
+        } else {
+          result = result.trimEnd() + "\n" + getIndent() + "(";
+        }
         indentLevel++;
         result += "\n" + getIndent();
         skipFinalAdd = true;
