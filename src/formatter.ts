@@ -3,34 +3,47 @@ import type { FormatterConfig } from './store/useConfigStore';
 export function formatSql(sql: string, config: FormatterConfig): string {
   if (!sql.trim()) return "";
 
-  // 1. Remove extra spaces and handle casing
-  let tokens = sql
+  // 1. Tokenize the SQL
+  const tokens = sql
     .replace(/\s+/g, ' ')
     .trim()
     .split(/([,()=<>!+\-*/%|&^~;])|\s+/)
-    .filter(t => t && t.trim().length > 0 || t === ' ');
+    .filter(t => t && t.trim().length > 0);
 
   let result = "";
   let indentLevel = 0;
+  let currentClause = "";
+  let lastToken = "";
 
-  const getIndent = () => " ".repeat(indentLevel * config.indentSize);
-
+  const getIndent = (extra = 0) => " ".repeat((indentLevel + extra) * config.indentSize);
+  
   const keywords = new Set([
     'SELECT', 'FROM', 'WHERE', 'JOIN', 'ON', 'GROUP', 'BY', 'ORDER', 'LIMIT', 'OFFSET',
-    'AND', 'OR', 'AS', 'IN', 'IS', 'NULL', 'NOT', 'EXISTS', 'HAVING', 'LEFT', 'RIGHT', 'INNER', 'OUTER', 'FULL', 'CROSS', 'UNION', 'ALL', 'DISTINCT', 'CASE', 'WHEN', 'THEN', 'ELSE', 'END', 'DESC', 'ASC'
+    'AND', 'OR', 'AS', 'IN', 'IS', 'NULL', 'NOT', 'EXISTS', 'HAVING', 'LEFT', 'RIGHT', 
+    'INNER', 'OUTER', 'FULL', 'CROSS', 'UNION', 'ALL', 'DISTINCT', 'CASE', 'WHEN', 
+    'THEN', 'ELSE', 'END', 'DESC', 'ASC', 'TABLE', 'VALUES', 'INSERT', 'INTO', 'UPDATE', 'DELETE'
   ]);
 
   const functions = new Set([
-    'COUNT', 'SUM', 'AVG', 'MIN', 'MAX', 'CAST', 'COALESCE', 'IFNULL', 'CONCAT', 'SUBSTR', 'UPPER', 'LOWER', 'NOW', 'DATE', 'YEAR', 'MONTH', 'DAY'
+    'COUNT', 'SUM', 'AVG', 'MIN', 'MAX', 'CAST', 'COALESCE', 'IFNULL', 'CONCAT', 
+    'SUBSTR', 'UPPER', 'LOWER', 'NOW', 'DATE', 'YEAR', 'MONTH', 'DAY', 'ABS', 'CEIL', 'FLOOR'
   ]);
-
-  let lastToken = "";
 
   for (let i = 0; i < tokens.length; i++) {
     let token = tokens[i];
-    let upperToken = token.toUpperCase();
+    const upperToken = token.toUpperCase();
 
-    // Casing rules
+    // 2. Identify Current Clause
+    if (['SELECT', 'FROM', 'WHERE', 'JOIN', 'GROUP', 'ORDER', 'LIMIT', 'OFFSET', 'HAVING'].includes(upperToken)) {
+      currentClause = upperToken;
+      if (upperToken === 'GROUP' || upperToken === 'ORDER') {
+        if (tokens[i + 1]?.toUpperCase() === 'BY') {
+           currentClause = upperToken + ' BY';
+        }
+      }
+    }
+
+    // 3. Handle Casing
     if (keywords.has(upperToken)) {
       token = config.keywordUppercase ? upperToken : upperToken.toLowerCase();
     } else if (functions.has(upperToken)) {
@@ -38,8 +51,7 @@ export function formatSql(sql: string, config: FormatterConfig): string {
     } else if (token.startsWith('$') || token.startsWith(':')) {
       token = config.variableLowercase ? token.toLowerCase() : token;
     } else if (token.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
-      // Heuristic: if it's after FROM or JOIN, it's a table. Otherwise a field.
-      const isTable = lastToken.toUpperCase() === 'FROM' || lastToken.toUpperCase() === 'JOIN' || lastToken.toUpperCase() === 'TABLE';
+      const isTable = ['FROM', 'JOIN', 'TABLE', 'INTO', 'UPDATE'].includes(lastToken.toUpperCase());
       if (isTable) {
         token = config.tableLowercase ? token.toLowerCase() : token;
       } else {
@@ -47,44 +59,92 @@ export function formatSql(sql: string, config: FormatterConfig): string {
       }
     }
 
-    // Newline rules
-    const needsNewlineBefore = 
-      (upperToken === 'FROM' ) ||
-      (upperToken === 'WHERE' && config.newlineWhere) ||
-      (upperToken === 'JOIN' && config.newlineJoin) ||
-      (upperToken === 'LEFT' && tokens[i+1]?.toUpperCase() === 'JOIN' && config.newlineJoin) ||
-      (upperToken === 'RIGHT' && tokens[i+1]?.toUpperCase() === 'JOIN' && config.newlineJoin) ||
-      (upperToken === 'GROUP' && tokens[i+1]?.toUpperCase() === 'BY' && config.newlineGroupBy) ||
-      (upperToken === 'ORDER' && tokens[i+1]?.toUpperCase() === 'BY' && config.newlineOrderBy) ||
-      (upperToken === 'LIMIT' && config.newlineLimit) ||
-      (upperToken === 'OFFSET' && config.newlineOffset) ||
-      (upperToken === 'AND' && lastToken !== '(') ||
-      (upperToken === 'OR' && lastToken !== '(');
+    // 4. Handle Newlines & Indentation
+    let prefix = " ";
+    
+    const isNewClause = ['SELECT', 'FROM', 'WHERE', 'JOIN', 'GROUP', 'ORDER', 'LIMIT', 'OFFSET', 'UNION', 'HAVING', 'LEFT', 'RIGHT', 'INNER', 'OUTER', 'FULL'].includes(upperToken);
+    const isJoinKeyword = ['LEFT', 'RIGHT', 'INNER', 'OUTER', 'FULL', 'JOIN'].includes(upperToken);
 
-    if (needsNewlineBefore && result.length > 0) {
-      result = result.trimEnd() + "\n" + getIndent();
+    if (isNewClause && result !== "") {
+      // Don't break if it's "GROUP BY" or "ORDER BY" intermediate keywords
+      if (!((upperToken === 'BY' && (lastToken.toUpperCase() === 'GROUP' || lastToken.toUpperCase() === 'ORDER')) ||
+            (isJoinKeyword && ['LEFT', 'RIGHT', 'INNER', 'OUTER', 'FULL'].includes(lastToken.toUpperCase())))) {
+        result = result.trimEnd() + "\n" + getIndent();
+        prefix = "";
+      }
     }
 
-    // SELECT field wrapping
-    if (lastToken === ',' && indentLevel === 0 && result.toLowerCase().includes('select')) {
-       const lastLine = result.split('\n').pop()!;
-       if (lastLine.length + token.length > config.selectFieldWrapLimit) {
-         result = result.trimEnd() + "\n  ";
-       }
+    // Newlines for conditions/fields
+    if (currentClause === 'WHERE' || currentClause === 'HAVING') {
+      if ((upperToken === 'AND' || upperToken === 'OR') && config.newlineWhere) {
+        result = result.trimEnd() + "\n" + getIndent(1);
+        prefix = "";
+      }
+    } else if (currentClause === 'JOIN') {
+      if (upperToken === 'ON' && config.newlineJoin) {
+        result = result.trimEnd() + "\n" + getIndent(1);
+        prefix = "";
+      }
+    } else if (currentClause === 'GROUP BY') {
+      if (token === ',' && config.newlineGroupBy) {
+        result += ",";
+        result = result.trimEnd() + "\n" + getIndent(1);
+        prefix = "";
+        lastToken = ",";
+        continue;
+      }
+    } else if (currentClause === 'ORDER BY') {
+      if (token === ',' && config.newlineOrderBy) {
+        result += ",";
+        result = result.trimEnd() + "\n" + getIndent(1);
+        prefix = "";
+        lastToken = ",";
+        continue;
+      }
+    } else if (currentClause === 'SELECT') {
+      if (token === ',') {
+        const lines = result.split('\n');
+        const lastLine = lines[lines.length - 1];
+        if (lastLine.length > config.selectFieldWrapLimit) {
+          result += ",";
+          result = result.trimEnd() + "\n" + getIndent(1);
+          prefix = "";
+          lastToken = ",";
+          continue;
+        }
+      } else {
+        const lines = result.split('\n');
+        const lastLine = lines[lines.length - 1];
+        // If adding this token (plus space/comma) exceeds limit, and we are at a point where we can break
+        if (lastLine.length + token.length > config.selectFieldWrapLimit && lastToken === ',') {
+          result = result.trimEnd() + "\n" + getIndent(1);
+          prefix = "";
+        }
+      }
     }
 
-    // Add token
-    const spacing = (token === ',' || token === '(' || token === ')' || result === "" || result.endsWith('\n') || result.endsWith(' ')) ? "" : " ";
-    result += spacing + token;
+    // Prevent space before comma/parenthesis
+    if (token === ',' || token === ')' || token === ';') {
+      prefix = "";
+    }
+    if (lastToken === '(' || result === "" || result.endsWith('\n') || result.endsWith(' ')) {
+      prefix = "";
+    }
+
+    result += prefix + token;
     lastToken = token;
   }
 
+  // 5. Cleanup
   if (config.noTabs) {
     result = result.replace(/\t/g, " ".repeat(config.indentSize));
   }
 
   if (config.noEmptyLines) {
-    result = result.split('\n').filter(line => line.trim() !== "").join('\n');
+    result = result.split('\n')
+      .map(line => line.trimEnd())
+      .filter(line => line.length > 0)
+      .join('\n');
   }
 
   return result;
