@@ -16,6 +16,7 @@ import * as Prism from 'prismjs';
 import 'prismjs/components/prism-sql';
 import 'prismjs/themes/prism.css'; 
 
+// Fix for potentially incompatible default exports in production builds
 const CodeEditor = (Editor as any).default || Editor;
 
 const highlightWithLineNumbers = (input: string) => {
@@ -51,9 +52,12 @@ const App: React.FC = () => {
   const LineNumbers = ({ content }: { content: string }) => {
     const lines = content.split('\n');
     return (
-      <div className="flex flex-col text-right pr-4 pt-[24px] select-none text-slate-300 font-mono text-[12px] leading-[1.6] bg-slate-50/50 border-r border-slate-100 shrink-0 min-w-[45px]">
+      <div 
+        className="flex flex-col text-right pr-4 pt-[24px] pb-[24px] select-none text-slate-300 font-mono text-[12px] leading-[1.6] bg-slate-50/50 border-r border-slate-100 shrink-0 min-w-[45px]"
+        style={{ fontFamily: '"JetBrains Mono", "Fira Code", monospace' }}
+      >
         {lines.map((_, i) => (
-          <div key={i} className="h-[19.2px]">{i + 1}</div>
+          <div key={i}>{i + 1}</div>
         ))}
       </div>
     );
@@ -62,35 +66,31 @@ const App: React.FC = () => {
   return (
     <div className="h-screen bg-white flex flex-col font-sans text-slate-900 selection:bg-indigo-100 overflow-hidden relative">
       
-      {/* Ultra-slim Navbar - Clean and Professional */}
-      <header className="h-10 shrink-0 bg-white border-b border-slate-200 px-4 flex items-center justify-between z-40">
+      {/* Navbar */}
+      <header className="h-10 shrink-0 bg-[#0f172a] border-b border-white/5 px-4 flex items-center justify-between z-40">
         <div className="flex items-center gap-2">
-          <Database size={14} className="text-indigo-600" strokeWidth={3} />
-          <h1 className="text-[11px] font-black tracking-widest text-slate-900 uppercase">
-            SQL <span className="text-indigo-600">Refinery</span>
+          <Database size={14} className="text-indigo-400" strokeWidth={3} />
+          <h1 className="text-[11px] font-black tracking-widest text-white uppercase">
+            SQL <span className="text-indigo-400">Refinery</span>
           </h1>
         </div>
 
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-1 text-[10px] font-bold text-slate-400">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1" />
-            SPARK 3.5
-          </div>
-          <div className="w-px h-3 bg-slate-200" />
           <button 
             onClick={() => setShowSettings(true)}
-            className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 hover:text-indigo-600 transition-colors uppercase"
+            className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400 hover:text-white transition-colors uppercase tracking-widest"
           >
             <Sliders size={12} strokeWidth={2.5} />
             Config
           </button>
+          <div className="w-px h-3 bg-white/10" />
           <button 
             onClick={handleCopy}
             disabled={!formattedSql}
             className={`flex items-center gap-1.5 px-3 py-1 text-[10px] font-bold rounded transition-all active:scale-95 ${
               copied 
-                ? 'text-emerald-600' 
-                : 'text-indigo-600 hover:bg-indigo-50 disabled:opacity-30'
+                ? 'text-emerald-400' 
+                : 'text-indigo-400 hover:text-white disabled:opacity-30'
             }`}
           >
             {copied ? <Check size={12} strokeWidth={3} /> : <Zap size={12} strokeWidth={2.5} />}
@@ -99,15 +99,15 @@ const App: React.FC = () => {
         </div>
       </header>
 
-      {/* Main Workspace */}
-      <main className="flex-1 flex min-h-0">
+      {/* Main Workspace - 50/50 Split */}
+      <main className="flex-1 flex min-h-0 relative">
         
         {/* Left: Input */}
         <div className="flex-1 flex flex-col min-w-0 border-r border-slate-200">
           <div className="h-8 shrink-0 flex items-center justify-between px-4 bg-slate-50 border-b border-slate-200/60">
             <div className="flex items-center gap-2 text-[9px] font-bold text-slate-400 uppercase tracking-widest">
               <Code size={10} strokeWidth={3} />
-              Source SQL
+              Source Input
             </div>
             <button 
               onClick={handleClear}
@@ -116,9 +116,9 @@ const App: React.FC = () => {
               Clear
             </button>
           </div>
-          <div className="flex-1 flex overflow-hidden">
+          <div className="flex-1 flex overflow-auto custom-scrollbar bg-white">
             <LineNumbers content={inputSql} />
-            <div className="flex-1 relative overflow-auto custom-scrollbar bg-white">
+            <div className="flex-1 relative">
               <CodeEditor
                 value={inputSql}
                 onValueChange={(code: string) => setInputSql(code)}
@@ -127,11 +127,11 @@ const App: React.FC = () => {
                 style={{
                   fontFamily: '"JetBrains Mono", "Fira Code", monospace',
                   fontSize: 12,
-                  minHeight: '100%',
                   lineHeight: '1.6',
                   color: '#334155',
+                  minHeight: '100%',
                 }}
-                className="focus:outline-none min-h-full"
+                className="focus:outline-none"
                 textareaClassName="focus:outline-none"
                 placeholder="-- Paste raw SQL here..."
               />
@@ -146,28 +146,27 @@ const App: React.FC = () => {
               <FileCode2 size={10} strokeWidth={3} />
               Refined Output
             </div>
-            <div className="text-[9px] font-black text-slate-300 uppercase italic">Immutable</div>
+            <div className="text-[9px] font-black text-slate-300 uppercase italic tracking-widest">Read Only</div>
           </div>
-          <div className="flex-1 flex overflow-hidden">
+          <div className="flex-1 flex overflow-auto custom-scrollbar bg-[#f8fafc]/30">
             <LineNumbers content={formattedSql} />
-            <div className="flex-1 overflow-auto custom-scrollbar">
-              <div className="min-h-full bg-[#f8fafc]/30">
-                <CodeEditor
-                  value={formattedSql || '-- No output'}
-                  onValueChange={() => {}}
-                  highlight={(code: string) => highlightWithLineNumbers(code)}
-                  padding={24}
-                  readOnly
-                  style={{
-                    fontFamily: '"JetBrains Mono", "Fira Code", monospace',
-                    fontSize: 12,
-                    lineHeight: '1.6',
-                    color: '#0f172a',
-                    fontWeight: 500,
-                  }}
-                  className="min-h-full"
-                />
-              </div>
+            <div className="flex-1 relative">
+              <CodeEditor
+                value={formattedSql || '-- No output'}
+                onValueChange={() => {}}
+                highlight={(code: string) => highlightWithLineNumbers(code)}
+                padding={24}
+                readOnly
+                style={{
+                  fontFamily: '"JetBrains Mono", "Fira Code", monospace',
+                  fontSize: 12,
+                  lineHeight: '1.6',
+                  color: '#0f172a',
+                  fontWeight: 500,
+                  minHeight: '100%',
+                }}
+                className="focus:outline-none"
+              />
             </div>
           </div>
         </div>
@@ -176,13 +175,10 @@ const App: React.FC = () => {
       {/* Floating Settings Drawer */}
       {showSettings && (
         <div className="fixed inset-0 z-50 flex justify-end">
-          {/* Backdrop Overlay - Darker and clearer */}
           <div 
             className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm animate-fade-in" 
             onClick={() => setShowSettings(false)} 
           />
-          
-          {/* Drawer - Explicitly solid white background */}
           <div className="relative w-full max-w-sm bg-white h-full shadow-2xl flex flex-col animate-in-right border-l border-slate-200 z-10">
             <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/80">
               <div className="flex items-center gap-3">
@@ -199,60 +195,106 @@ const App: React.FC = () => {
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-8 space-y-10">
+            <div className="flex-1 overflow-y-auto p-8 space-y-12 custom-scrollbar">
               <SettingsCategory title="Editor Layout">
-                <ModernSwitch label="Use Spaces" value={config.noTabs} onChange={(v) => updateConfig({ noTabs: v })} />
-                <ModernSwitch label="Compact View" value={config.noEmptyLines} onChange={(v) => updateConfig({ noEmptyLines: v })} />
+                <ModernSwitch 
+                  label="Convert Tabs to Spaces" 
+                  description="Ensures consistent cross-platform indentation."
+                  value={config.noTabs} 
+                  onChange={(v) => updateConfig({ noTabs: v })} 
+                />
+                <ModernSwitch 
+                  label="Compact Representation" 
+                  description="Removes empty lines for maximum code density."
+                  value={config.noEmptyLines} 
+                  onChange={(v) => updateConfig({ noEmptyLines: v })} 
+                />
                 <div className="flex items-center justify-between pt-2">
-                  <span className="text-[10px] font-bold text-slate-500 uppercase">Indent Size</span>
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Indent Size</span>
                   <div className="flex bg-slate-100 rounded p-0.5">
-                    {[2, 4].map(s => (
-                      <button key={s} onClick={() => updateConfig({ indentSize: s })} className={`px-3 py-1 text-[10px] font-bold rounded ${config.indentSize === s ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-400'}`}>{s}</button>
+                    {[2, 4, 8].map(s => (
+                      <button 
+                        key={s} 
+                        onClick={() => updateConfig({ indentSize: s })} 
+                        className={`px-3 py-1 text-[10px] font-bold rounded transition-all ${config.indentSize === s ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-400'}`}
+                      >
+                        {s}
+                      </button>
                     ))}
                   </div>
                 </div>
               </SettingsCategory>
 
-              <SettingsCategory title="Sql Style">
-                <ModernSwitch label="Upper Keywords" value={config.keywordUppercase} onChange={(v) => updateConfig({ keywordUppercase: v })} />
-                <ModernSwitch label="Upper Functions" value={config.functionUppercase} onChange={(v) => updateConfig({ functionUppercase: v })} />
-                <ModernSwitch label="Lower Identifiers" value={config.fieldLowercase} onChange={(v) => updateConfig({ fieldLowercase: v, tableLowercase: v })} />
+              <SettingsCategory title="SQL Casing">
+                <ModernSwitch label="Keywords to UPPERCASE" value={config.keywordUppercase} onChange={(v) => updateConfig({ keywordUppercase: v })} />
+                <ModernSwitch label="Functions to UPPERCASE" value={config.functionUppercase} onChange={(v) => updateConfig({ functionUppercase: v })} />
+                <ModernSwitch label="Identifiers to lowercase" value={config.fieldLowercase} onChange={(v) => updateConfig({ fieldLowercase: v, tableLowercase: v })} />
               </SettingsCategory>
 
-              <SettingsCategory title="Alignment">
-                <ModernSwitch label="Keyword Alignment" value={config.alignKeywords} onChange={(v) => updateConfig({ alignKeywords: v })} />
+              <SettingsCategory title="Structural Alignment">
+                <ModernSwitch 
+                  label="Right-align Keywords" 
+                  description="Aligns SELECT/FROM/WHERE to the right column."
+                  value={config.alignKeywords} 
+                  onChange={(v) => updateConfig({ alignKeywords: v })} 
+                />
                 <div className="space-y-3 pt-2">
-                  <div className="flex justify-between text-[10px] font-bold text-slate-500 uppercase">
-                    <span>Line Wrap</span>
-                    <span className="text-indigo-600">{config.selectFieldWrapLimit} chr</span>
+                  <div className="flex justify-between text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                    <span>Line Wrap Complexity</span>
+                    <span className="text-indigo-600 font-black">{config.selectFieldWrapLimit} chr</span>
                   </div>
-                  <input type="range" min="40" max="120" step="10" value={config.selectFieldWrapLimit} onChange={(e) => updateConfig({ selectFieldWrapLimit: parseInt(e.target.value) })} className="w-full accent-indigo-600 h-1 bg-slate-100 rounded-lg appearance-none cursor-pointer" />
+                  <input 
+                    type="range" min="40" max="120" step="10" 
+                    value={config.selectFieldWrapLimit} 
+                    onChange={(e) => updateConfig({ selectFieldWrapLimit: parseInt(e.target.value) })} 
+                    className="w-full accent-indigo-600 h-1 bg-slate-100 rounded-lg appearance-none cursor-pointer" 
+                  />
                 </div>
               </SettingsCategory>
             </div>
 
             <div className="p-6 bg-slate-50 border-t border-slate-100">
-              <button onClick={() => setShowSettings(false)} className="w-full py-3 bg-slate-900 text-white rounded-lg font-bold text-[10px] tracking-widest hover:bg-slate-800 transition-all uppercase">Apply & Close</button>
+              <button 
+                onClick={() => setShowSettings(false)} 
+                className="w-full py-3 bg-[#0f172a] text-white rounded font-black text-[10px] tracking-[0.2em] shadow-xl hover:bg-slate-800 transition-all active:scale-[0.98] uppercase"
+              >
+                Save & Apply
+              </button>
             </div>
           </div>
         </div>
       )}
+
+      {/* Footer Status Bar */}
+      <footer className="h-6 shrink-0 bg-[#0f172a] border-t border-white/5 px-4 flex items-center justify-between text-[8px] font-bold text-slate-500 uppercase tracking-widest">
+        <div className="flex gap-4">
+          <span className="flex items-center gap-1"><Database size={10} /> Parser: Antlr4-Spark</span>
+          <span className="flex items-center gap-1 text-indigo-400/60">Status: Real-time Sync</span>
+        </div>
+        <span>v3.5.0 Stable</span>
+      </footer>
     </div>
   );
 };
 
 const SettingsCategory: React.FC<{ title: string, children: React.ReactNode }> = ({ title, children }) => (
-  <div className="space-y-4">
-    <h3 className="text-[9px] font-black uppercase tracking-[0.2em] text-indigo-600/50">{title}</h3>
-    <div className="space-y-4">{children}</div>
+  <div className="space-y-5">
+    <h3 className="text-[10px] font-black uppercase tracking-[0.25em] text-indigo-600/60 flex items-center gap-2">
+      <span className="w-1.5 h-[1px] bg-indigo-600/30" />
+      {title}
+    </h3>
+    <div className="space-y-5">{children}</div>
   </div>
 );
 
-const ModernSwitch: React.FC<{ label: string, value: boolean, onChange: (v: boolean) => void }> = ({ label, value, onChange }) => (
-  <div className="flex items-center justify-between group cursor-pointer" onClick={() => onChange(!value)}>
-    <span className="text-[11px] font-bold text-slate-600 group-hover:text-slate-900 transition-colors uppercase tracking-tight">{label}</span>
-    <div className={`w-8 h-4.5 rounded-full p-0.5 transition-colors duration-200 ${value ? 'bg-indigo-600' : 'bg-slate-200'}`}>
-      <div className={`w-3.5 h-3.5 bg-white rounded-full transition-transform duration-200 shadow-sm ${value ? 'translate-x-3.5' : 'translate-x-0'}`} />
+const ModernSwitch: React.FC<{ label: string, description?: string, value: boolean, onChange: (v: boolean) => void }> = ({ label, description, value, onChange }) => (
+  <div className="flex items-start justify-between group cursor-pointer" onClick={() => onChange(!value)}>
+    <div className="flex flex-col gap-0.5 max-w-[80%]">
+      <span className="text-[11px] font-bold text-slate-700 group-hover:text-slate-900 transition-colors uppercase tracking-tight">{label}</span>
+      {description && <p className="text-[10px] text-slate-400 leading-tight pr-4 normal-case font-medium tracking-normal">{description}</p>}
+    </div>
+    <div className={`shrink-0 w-8 h-4.5 rounded-full p-0.5 transition-all duration-300 shadow-inner ${value ? 'bg-indigo-600 shadow-indigo-200' : 'bg-slate-200'}`}>
+      <div className={`w-3.5 h-3.5 bg-white rounded-full transition-transform duration-300 shadow-sm ${value ? 'translate-x-3.5' : 'translate-x-0'}`} />
     </div>
   </div>
 );
