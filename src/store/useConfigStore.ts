@@ -32,7 +32,7 @@ export const useConfigStore = create<ConfigState>((set) => ({
     fieldLowercase: true,
     tableLowercase: true,
     variableLowercase: true,
-    selectFieldWrapLimit: 100,
+    selectFieldWrapLimit: 80, // Default changed to 80
     newlineWhere: true,
     newlineJoin: true,
     newlineGroupBy: true,
