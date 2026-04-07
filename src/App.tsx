@@ -16,9 +16,14 @@ import {
   Zap
 } from 'lucide-react';
 import Editor from 'react-simple-code-editor';
-import Prism from 'prismjs';
+import * as Prism from 'prismjs';
 import 'prismjs/components/prism-sql';
-import 'prismjs/themes/prism.css'; // Standard theme base
+import 'prismjs/themes/prism.css'; 
+
+const highlightWithLineNumbers = (input: string, language: any, label: string) => {
+  if (!language) return input;
+  return Prism.highlight(input, language, label);
+};
 
 const App: React.FC = () => {
   const { config, updateConfig } = useConfigStore();
@@ -102,7 +107,7 @@ const App: React.FC = () => {
             <Editor
               value={inputSql}
               onValueChange={code => setInputSql(code)}
-              highlight={code => Prism.highlight(code, Prism.languages.sql, 'sql')}
+              highlight={code => highlightWithLineNumbers(code, Prism.languages.sql, 'sql')}
               padding={24}
               style={{
                 fontFamily: '"JetBrains Mono", "Fira Code", monospace',
@@ -135,7 +140,7 @@ const App: React.FC = () => {
               <Editor
                 value={formattedSql || '-- No output generated'}
                 onValueChange={() => {}}
-                highlight={code => Prism.highlight(code, Prism.languages.sql, 'sql')}
+                highlight={code => highlightWithLineNumbers(code, Prism.languages.sql, 'sql')}
                 padding={24}
                 readOnly
                 style={{
