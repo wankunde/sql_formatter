@@ -130,6 +130,10 @@ export function formatSql(sql: string, config: FormatterConfig): string {
     if (lastToken === '(' || result === "" || result.endsWith('\n') || result.endsWith(' ')) {
       prefix = "";
     }
+    // Prevent space between function name and '('
+    if (token === '(' && /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(lastToken)) {
+      prefix = "";
+    }
 
     result += prefix + token;
     lastToken = token;
