@@ -16,6 +16,7 @@ export interface FormatterConfig {
   newlineLimit: boolean;
   newlineOffset: boolean;
   indentSize: number;
+  alignKeywords: boolean; // New option
 }
 
 interface ConfigState {
@@ -32,7 +33,7 @@ export const useConfigStore = create<ConfigState>((set) => ({
     fieldLowercase: true,
     tableLowercase: true,
     variableLowercase: true,
-    selectFieldWrapLimit: 80, // Default changed to 80
+    selectFieldWrapLimit: 80,
     newlineWhere: true,
     newlineJoin: true,
     newlineGroupBy: true,
@@ -40,6 +41,7 @@ export const useConfigStore = create<ConfigState>((set) => ({
     newlineLimit: true,
     newlineOffset: true,
     indentSize: 2,
+    alignKeywords: true, // Default to true as requested
   },
   updateConfig: (newConfig) =>
     set((state) => ({ config: { ...state.config, ...newConfig } })),

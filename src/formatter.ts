@@ -18,18 +18,23 @@ export function formatSql(sql: string, config: FormatterConfig): string {
   const parenStack: { type: 'subquery' | 'expression', indent: number }[] = [];
   const getIndent = (extra = 0) => " ".repeat(Math.max(0, indentLevel + extra) * config.indentSize);
   
+  // Keywords that often start a new line and can be aligned
+  const alignableKeywords = new Set([
+    'SELECT', 'FROM', 'WHERE', 'JOIN', 'LEFT', 'RIGHT', 'INNER', 'OUTER', 'GROUP', 'ORDER', 'LIMIT', 'OFFSET', 'HAVING', 'ON', 'UNION', 'VALUES', 'INSERT', 'UPDATE', 'CREATE'
+  ]);
+
   const keywords = new Set([
-    'SELECT', 'FROM', 'WHERE', 'JOIN', 'ON', 'GROUP', 'BY', 'ORDER', 'LIMIT', 'OFFSET',
-    'AND', 'OR', 'AS', 'IN', 'IS', 'NULL', 'NOT', 'EXISTS', 'HAVING', 'LEFT', 'RIGHT', 
-    'INNER', 'OUTER', 'FULL', 'CROSS', 'UNION', 'ALL', 'DISTINCT', 'CASE', 'WHEN', 
-    'THEN', 'ELSE', 'END', 'DESC', 'ASC', 'TABLE', 'VALUES', 'INSERT', 'INTO', 'UPDATE', 'DELETE',
-    'CREATE', 'IF', 'EXISTS'
+    ...Array.from(alignableKeywords),
+    'AND', 'OR', 'AS', 'IN', 'IS', 'NULL', 'NOT', 'EXISTS', 'BY', 'DISTINCT', 'CASE', 'WHEN', 
+    'THEN', 'ELSE', 'END', 'DESC', 'ASC', 'TABLE', 'INTO', 'DELETE', 'IF', 'EXISTS'
   ]);
 
   const functions = new Set([
     'COUNT', 'SUM', 'AVG', 'MIN', 'MAX', 'CAST', 'COALESCE', 'IFNULL', 'CONCAT', 
     'SUBSTR', 'UPPER', 'LOWER', 'NOW', 'DATE', 'YEAR', 'MONTH', 'DAY', 'ABS', 'CEIL', 'FLOOR', 'TRIM', 'SIZE', 'SPLIT'
   ]);
+
+  const ALIGN_WIDTH = 6; // Target width for SELECT alignment
 
   for (let i = 0; i < tokens.length; i++) {
     let token = tokens[i];
@@ -52,7 +57,7 @@ export function formatSql(sql: string, config: FormatterConfig): string {
     } else if (token.startsWith('$') || token.startsWith(':')) {
       token = config.variableLowercase ? token.toLowerCase() : token;
     } else if (token.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
-      const isTable = ['FROM', 'JOIN', 'TABLE', 'INTO', 'UPDATE'].includes(lastToken.toUpperCase());
+      const isTable = ['FROM', 'JOIN', 'TABLE', 'INTO', 'UPDATE', 'TABLE'].includes(lastToken.toUpperCase());
       if (isTable) {
         token = config.tableLowercase ? token.toLowerCase() : token;
       } else {
@@ -86,30 +91,52 @@ export function formatSql(sql: string, config: FormatterConfig): string {
         prefix = "";
       }
     } else {
-      const isNewClause = ['SELECT', 'FROM', 'WHERE', 'JOIN', 'GROUP', 'ORDER', 'LIMIT', 'OFFSET', 'UNION', 'HAVING', 'LEFT', 'RIGHT', 'INNER', 'OUTER', 'FULL'].includes(upperToken);
+      const isNewClause = alignableKeywords.has(upperToken);
       const isJoinKeyword = ['LEFT', 'RIGHT', 'INNER', 'OUTER', 'FULL', 'JOIN'].includes(upperToken);
 
       if (isNewClause && result !== "") {
+        // Prevent breaking "GROUP BY" or "LEFT JOIN" mid-phrase
         if (!((upperToken === 'BY' && (lastToken.toUpperCase() === 'GROUP' || lastToken.toUpperCase() === 'ORDER')) ||
               (isJoinKeyword && ['LEFT', 'RIGHT', 'INNER', 'OUTER', 'FULL'].includes(lastToken.toUpperCase())))) {
+          
           result = result.trimEnd() + "\n" + getIndent();
+          
+          if (config.alignKeywords) {
+            // Apply right-alignment for keywords within the indent block
+            let fullKeyword = upperToken;
+            if (upperToken === 'GROUP' || upperToken === 'ORDER') {
+               if (nextToken === 'BY') fullKeyword = upperToken + ' BY';
+            }
+            if (isJoinKeyword) {
+               // Handle multi-word joins if necessary, but keep it simple for now
+            }
+            
+            const padding = Math.max(0, ALIGN_WIDTH - fullKeyword.length);
+            result += " ".repeat(padding);
+          }
+          
           prefix = "";
         }
       }
 
+      // Clause specific breaks
       if ((currentClause === 'WHERE' || currentClause === 'HAVING') && (upperToken === 'AND' || upperToken === 'OR') && config.newlineWhere) {
-        result = result.trimEnd() + "\n" + getIndent(1);
+        const wrapIndent = config.alignKeywords ? ALIGN_WIDTH + 1 : config.indentSize;
+        result = result.trimEnd() + "\n" + getIndent() + " ".repeat(wrapIndent);
         prefix = "";
       } else if (upperToken === 'ON' && config.newlineJoin) {
-        result = result.trimEnd() + "\n" + getIndent(1);
+        const wrapIndent = config.alignKeywords ? ALIGN_WIDTH - 2 : config.indentSize; // ON is 2 chars, aligns to 6 with 4 spaces
+        result = result.trimEnd() + "\n" + getIndent() + " ".repeat(Math.max(0, wrapIndent));
         prefix = "";
       } else if (token === ',' && (currentClause === 'GROUP BY' || currentClause === 'ORDER BY')) {
-        result = result.trimEnd() + ",\n" + getIndent(1);
+        const wrapIndent = config.alignKeywords ? ALIGN_WIDTH + 1 : config.indentSize;
+        result = result.trimEnd() + ",\n" + getIndent() + " ".repeat(wrapIndent);
         skipFinalAdd = true;
       } else if (currentClause === 'SELECT' && token === ',') {
         const lastLine = result.split('\n').pop() || "";
         if (lastLine.length > config.selectFieldWrapLimit) {
-          result = result.trimEnd() + ",\n" + getIndent(1);
+          const wrapIndent = config.alignKeywords ? ALIGN_WIDTH + 1 : config.indentSize;
+          result = result.trimEnd() + ",\n" + getIndent() + " ".repeat(wrapIndent);
           skipFinalAdd = true;
         }
       }
@@ -124,7 +151,7 @@ export function formatSql(sql: string, config: FormatterConfig): string {
     lastToken = token;
   }
 
-  // Final Pass
+  // 5. Cleanup
   if (config.noTabs) result = result.replace(/\t/g, " ".repeat(config.indentSize));
   if (config.noEmptyLines) {
     result = result.split('\n').map(l => l.trimEnd()).filter(l => l.length > 0).join('\n');

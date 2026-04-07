@@ -248,6 +248,12 @@ const App: React.FC = () => {
 
               <SettingsCategory title="Structural Logic">
                 <ModernSwitch 
+                  label="Right-align Top-level Keywords" 
+                  description="Aligns SELECT, FROM, WHERE, etc. to the right for vertical content alignment."
+                  value={config.alignKeywords} 
+                  onChange={(v) => updateConfig({ alignKeywords: v })} 
+                />
+                <ModernSwitch 
                   label="Smart WHERE/JOIN Breaks" 
                   value={config.newlineWhere} 
                   onChange={(v) => updateConfig({ newlineWhere: v, newlineJoin: v })} 

@@ -18,6 +18,7 @@ const defaultConfig: FormatterConfig = {
   newlineLimit: true,
   newlineOffset: true,
   indentSize: 2,
+  alignKeywords: false,
 };
 
 describe('SQL Formatter Integrity', () => {
@@ -67,5 +68,14 @@ describe('SQL Formatter Integrity', () => {
     const formatted = formatSql(sql, defaultConfig);
     expect(formatted).toContain(') t2');
     expect(formatted).toContain('\n  ON');
+  });
+
+  it('should right-align keywords when alignKeywords is true', () => {
+    const sql = 'SELECT col FROM tbl WHERE id = 1';
+    const formatted = formatSql(sql, { ...defaultConfig, alignKeywords: true });
+    // SELECT (6), "  FROM" (2+4=6), " WHERE" (1+5=6)
+    expect(formatted).toContain('SELECT col');
+    expect(formatted).toContain('\n  FROM tbl');
+    expect(formatted).toContain('\n WHERE id = 1');
   });
 });
