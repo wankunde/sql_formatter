@@ -90,4 +90,10 @@ describe('SQL Formatter Integrity', () => {
     const formatted = formatSql(sql, defaultConfig);
     expect(formatted).toContain('FROM (');
   });
+
+  it('should put subquery parenthesis on the same line as JOIN', () => {
+    const sql = 'SELECT * FROM t1 JOIN (SELECT id FROM t2) sub ON t1.id = sub.id';
+    const formatted = formatSql(sql, defaultConfig);
+    expect(formatted).toContain('JOIN (');
+  });
 });
