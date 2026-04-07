@@ -78,4 +78,10 @@ describe('SQL Formatter Integrity', () => {
     expect(formatted).toContain('\n  FROM tbl');
     expect(formatted).toContain('\n WHERE id = 1');
   });
+
+  it('should have space between ON and parenthesis', () => {
+    const sql = 'SELECT * FROM t1 JOIN t2 ON (t1.id = t2.id)';
+    const formatted = formatSql(sql, defaultConfig);
+    expect(formatted).toContain('ON (');
+  });
 });

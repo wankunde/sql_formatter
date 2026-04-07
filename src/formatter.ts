@@ -79,7 +79,17 @@ export function formatSql(sql: string, config: FormatterConfig): string {
         skipFinalAdd = true;
       } else {
         parenStack.push({ type: 'expression', indent: indentLevel });
-        if (lastToken.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) prefix = ""; 
+        const lastUpper = lastToken.toUpperCase();
+        const isKeyword = keywords.has(lastUpper);
+        const isFunction = functions.has(lastUpper);
+        
+        // Remove space for functions or normal identifiers (likely custom functions)
+        // But KEEP space for structural keywords like ON, WHERE, etc.
+        if (lastToken.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
+          if (isFunction || !isKeyword) {
+            prefix = ""; 
+          }
+        }
       }
     } else if (token === ')') {
       const lastParen = parenStack.pop();
