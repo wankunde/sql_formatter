@@ -106,7 +106,7 @@ const App: React.FC = () => {
               padding={24}
               style={{
                 fontFamily: '"JetBrains Mono", "Fira Code", monospace',
-                fontSize: 14,
+                fontSize: 12,
                 minHeight: '100%',
                 lineHeight: '1.6',
                 color: '#1e293b',
@@ -140,7 +140,7 @@ const App: React.FC = () => {
                 readOnly
                 style={{
                   fontFamily: '"JetBrains Mono", "Fira Code", monospace',
-                  fontSize: 14,
+                  fontSize: 12,
                   lineHeight: '1.7',
                   color: '#0f172a',
                   fontWeight: 500,
