@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { formatSql } from './formatter';
-import { FormatterConfig } from './store/useConfigStore';
+import type { FormatterConfig } from './store/useConfigStore';
 
 const defaultConfig: FormatterConfig = {
   noTabs: true,

@@ -1,4 +1,4 @@
-import { FormatterConfig } from './store/useConfigStore';
+import type { FormatterConfig } from './store/useConfigStore';
 
 export function formatSql(sql: string, config: FormatterConfig): string {
   if (!sql.trim()) return "";
@@ -12,7 +12,6 @@ export function formatSql(sql: string, config: FormatterConfig): string {
 
   let result = "";
   let indentLevel = 0;
-  let currentLineLength = 0;
 
   const getIndent = () => " ".repeat(indentLevel * config.indentSize);
 
@@ -64,7 +63,6 @@ export function formatSql(sql: string, config: FormatterConfig): string {
 
     if (needsNewlineBefore && result.length > 0) {
       result = result.trimEnd() + "\n" + getIndent();
-      currentLineLength = result.split('\n').pop()!.length;
     }
 
     // SELECT field wrapping
@@ -72,7 +70,6 @@ export function formatSql(sql: string, config: FormatterConfig): string {
        const lastLine = result.split('\n').pop()!;
        if (lastLine.length + token.length > config.selectFieldWrapLimit) {
          result = result.trimEnd() + "\n  ";
-         currentLineLength = 2;
        }
     }
 
