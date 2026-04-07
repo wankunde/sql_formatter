@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useConfigStore } from './store/useConfigStore';
 import { formatSql } from './formatter';
 import { 
-  Copy, 
   Settings2, 
   Trash2, 
   Terminal, 
