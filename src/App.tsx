@@ -175,10 +175,16 @@ const App: React.FC = () => {
 
       {/* Floating Settings Drawer */}
       {showSettings && (
-        <div className="fixed inset-0 z-50 flex justify-end animate-fade-in">
-          <div className="absolute inset-0 bg-slate-900/20 backdrop-blur-[2px]" onClick={() => setShowSettings(false)} />
-          <div className="relative w-full max-w-sm bg-white h-full shadow-2xl flex flex-col animate-in-right border-l border-slate-200">
-            <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+        <div className="fixed inset-0 z-50 flex justify-end">
+          {/* Backdrop Overlay - Darker and clearer */}
+          <div 
+            className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm animate-fade-in" 
+            onClick={() => setShowSettings(false)} 
+          />
+          
+          {/* Drawer - Explicitly solid white background */}
+          <div className="relative w-full max-w-sm bg-white h-full shadow-2xl flex flex-col animate-in-right border-l border-slate-200 z-10">
+            <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/80">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 bg-indigo-600 rounded flex items-center justify-center text-white">
                   <Settings2 size={16} />
