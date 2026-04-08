@@ -38,8 +38,15 @@ describe('App UI workbench', () => {
 
     expect(screen.getByTestId('source-pane')).toBeInTheDocument();
     expect(screen.getByTestId('output-pane')).toBeInTheDocument();
-    expect(screen.getByTestId('inspector-panel')).toBeInTheDocument();
+    expect(screen.queryByTestId('inspector-panel')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Copy formatted SQL' })).toBeDisabled();
+
+    const inspectorToggleButton = screen.getByRole('button', { name: 'Toggle inspector panel' });
+    fireEvent.click(inspectorToggleButton);
+    expect(screen.getByTestId('inspector-panel')).toBeInTheDocument();
+
+    fireEvent.click(inspectorToggleButton);
+    expect(screen.queryByTestId('inspector-panel')).not.toBeInTheDocument();
   });
 
   it('formats SQL in real time as input changes', async () => {
@@ -87,6 +94,7 @@ describe('App UI workbench', () => {
 
   it('applies indentation and casing configuration changes', async () => {
     render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: 'Toggle inspector panel' }));
 
     const sourceTextarea = screen.getByLabelText('Source SQL input') as HTMLTextAreaElement;
     const outputTextarea = screen.getByLabelText('Formatted SQL output') as HTMLTextAreaElement;

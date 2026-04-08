@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { PanelRightClose, PanelRightOpen } from 'lucide-react';
+import { PanelRightClose } from 'lucide-react';
 import { formatSql } from './formatter';
 import { InspectorPanel } from './components/InspectorPanel';
 import { SqlEditorPane } from './components/SqlEditorPane';
@@ -33,7 +33,7 @@ export default function App() {
   const [copyState, setCopyState] = useState<'idle' | 'success' | 'error'>('idle');
   const [activeMobilePane, setActiveMobilePane] = useState<MobilePane>('source');
   const [isInspectorDrawerOpen, setIsInspectorDrawerOpen] = useState(false);
-  const [isDesktopInspectorOpen, setIsDesktopInspectorOpen] = useState(true);
+  const [isDesktopInspectorOpen, setIsDesktopInspectorOpen] = useState(false);
   const copyStateTimerRef = useRef<number | null>(null);
 
   const { formattedSql, formattingError } = useMemo(() => {
@@ -107,6 +107,7 @@ export default function App() {
   const isMobile = viewportMode === 'mobile';
   const showSourcePane = !isMobile || activeMobilePane === 'source';
   const showOutputPane = !isMobile || activeMobilePane === 'output';
+  const workspaceClassName = `workspace workspace--${viewportMode}${showDesktopInspector ? ' has-inspector' : ''}`;
 
   return (
     <div className="app-shell">
@@ -146,7 +147,7 @@ export default function App() {
         </nav>
       ) : null}
 
-      <main className={`workspace workspace--${viewportMode}`}>
+      <main className={workspaceClassName}>
         {showSourcePane ? (
           <SqlEditorPane
             title="Source SQL"
@@ -181,19 +182,6 @@ export default function App() {
           />
         ) : null}
 
-        {isDesktopMode(viewportMode) && !isDesktopInspectorOpen ? (
-          <aside className="inspector-rail">
-            <button
-              type="button"
-              className="icon-btn icon-btn--rail"
-              onClick={() => setIsDesktopInspectorOpen(true)}
-              aria-label="Expand inspector panel"
-            >
-              <PanelRightOpen size={18} strokeWidth={2.2} />
-              <span>Inspector</span>
-            </button>
-          </aside>
-        ) : null}
       </main>
 
       {!isDesktopMode(viewportMode) && isInspectorDrawerOpen ? (
