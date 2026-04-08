@@ -161,4 +161,12 @@ describe('SQL Formatter - Full Regression Suite', () => {
     expect(caseLineIndex).toBeGreaterThan(positionLineIndex);
     expect(lines[positionLineIndex]).not.toContain('CASE');
   });
+
+  it('should always start INSERT expression on a new line from INSERT keyword', () => {
+    const sql = `SELECT 1; INSERT INTO target_table SELECT col1, col2 FROM source_table`;
+    const formatted = formatSql(sql, defaultConfig);
+
+    expect(formatted).toContain(';\nINSERT INTO');
+    expect(formatted).not.toContain('; INSERT INTO');
+  });
 });
