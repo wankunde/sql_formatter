@@ -52,3 +52,35 @@ body {
 .animate-in-right {
   animation: slideInRight 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
+
+/* Custom SQL Syntax Highlighting Overrides */
+.token.keyword {
+  color: #0033cc !important;
+  font-weight: 700 !important;
+}
+
+.token.function {
+  color: #7c3aed !important;
+}
+
+.token.string {
+  color: #0891b2 !important;
+}
+
+.token.comment {
+  color: #94a3b8 !important;
+  font-style: italic;
+}
+
+.token.number {
+  color: #ea580c !important;
+}
+
+.token.operator {
+  color: #64748b !important;
+}
+
+.token.punctuation {
+  color: #94a3b8 !important;
+}
+
