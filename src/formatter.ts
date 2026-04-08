@@ -94,6 +94,7 @@ export function formatSql(sql: string, config: FormatterConfig): string {
   for (let i = 0; i < tokens.length; i++) {
     let token = tokens[i];
     let upperToken = token.toUpperCase();
+    let currentCaseIsLong = false;
     
     // Combine multi-word keywords
     const nextTokenRaw = tokens[i+1];
@@ -144,7 +145,8 @@ export function formatSql(sql: string, config: FormatterConfig): string {
       const currentLine = result.split('\n').pop() || "";
       let whenIndentPos = currentLine.length + prefix.length + 5; 
       if (result.endsWith('\n') || result === "") whenIndentPos = getIndent().length + (config.alignKeywords ? ALIGN_WIDTH + 1 : 0) + 5;
-      caseStack.push({ startPos: i, isLong: caseLength > 30, indent: indentLevel, whenIndent: whenIndentPos });
+      currentCaseIsLong = caseLength > 30;
+      caseStack.push({ startPos: i, isLong: currentCaseIsLong, indent: indentLevel, whenIndent: whenIndentPos });
     }
 
     // Core Formatting Logic
@@ -187,6 +189,10 @@ export function formatSql(sql: string, config: FormatterConfig): string {
       } else {
         prefix = "";
       }
+    } else if (upperToken === 'CASE' && currentClause === 'SELECT' && lastToken === ',' && currentCaseIsLong) {
+      const wrapIndent = config.alignKeywords ? ALIGN_WIDTH + 1 : config.indentSize;
+      result = result.trimEnd() + "\n" + getIndent() + " ".repeat(wrapIndent);
+      prefix = "";
     } else if (upperToken === 'WHEN' || upperToken === 'THEN' || upperToken === 'ELSE' || upperToken === 'END') {
       const currentCase = caseStack[caseStack.length - 1];
       if (currentCase && currentCase.isLong) {

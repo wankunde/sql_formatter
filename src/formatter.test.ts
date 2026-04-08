@@ -139,4 +139,26 @@ describe('SQL Formatter - Full Regression Suite', () => {
     expect(vv10Index).toBeGreaterThan(-1);
     expect(vv60Index).toBeGreaterThan(vv10Index);
   });
+
+  it('should place long CASE WHEN expression on its own line in SELECT list', () => {
+    const sql = `
+      select
+        position,
+        case
+          when fresh_index >= 1 and fresh_index <= 20 then fresh_index
+          when fresh_index > 20 then 99
+          else -1
+        end as fresh_index
+      from t
+    `;
+
+    const formatted = formatSql(sql, defaultConfig);
+    const lines = formatted.split('\n');
+    const positionLineIndex = lines.findIndex((line) => line.includes('position'));
+    const caseLineIndex = lines.findIndex((line) => line.trimStart().startsWith('CASE'));
+
+    expect(positionLineIndex).toBeGreaterThan(-1);
+    expect(caseLineIndex).toBeGreaterThan(positionLineIndex);
+    expect(lines[positionLineIndex]).not.toContain('CASE');
+  });
 });
