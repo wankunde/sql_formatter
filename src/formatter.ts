@@ -42,7 +42,7 @@ export function formatSql(sql: string, config: FormatterConfig): string {
     let upperToken = token.toUpperCase();
     
     // Combine multi-word keywords
-    let nextTokenRaw = tokens[i+1];
+    const nextTokenRaw = tokens[i+1];
     let nextUpper = nextTokenRaw?.toUpperCase();
     if (['GROUP', 'ORDER', 'LEFT', 'RIGHT', 'INNER', 'OUTER', 'FULL', 'CROSS', 'CREATE', 'INSERT'].includes(upperToken)) {
        if (nextUpper === 'BY' || nextUpper === 'JOIN' || nextUpper === 'TABLE' || nextUpper === 'INTO') {
