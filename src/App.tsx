@@ -16,6 +16,20 @@ import * as Prism from 'prismjs';
 import 'prismjs/components/prism-sql';
 import 'prismjs/themes/prism.css'; 
 
+// Extend Prism SQL keywords for Spark SQL specifically to improve input highlighting
+if (Prism.languages.sql) {
+  const sparkKeywords = /\b(?:SELECT|FROM|WHERE|JOIN|ON|GROUP|BY|ORDER|LIMIT|OFFSET|AND|OR|AS|IN|IS|NULL|NOT|EXISTS|HAVING|LEFT|RIGHT|INNER|OUTER|FULL|CROSS|UNION|ALL|DISTINCT|CASE|WHEN|THEN|ELSE|END|DESC|ASC|TABLE|VALUES|INSERT|INTO|UPDATE|DELETE|CREATE|IF|DATEDIFF|COUNT|SUM|AVG|MIN|MAX|CAST|COALESCE|IFNULL|CONCAT|SUBSTR|UPPER|LOWER|NOW|DATE|YEAR|MONTH|DAY|OVER|PARTITION|ROWS|PRECEDING|FOLLOWING)\b/i;
+  // We append our extensive list to the existing keyword pattern
+  const currentKeyword = Prism.languages.sql.keyword;
+  if (Array.isArray(currentKeyword)) {
+    currentKeyword.push(sparkKeywords);
+  } else if (currentKeyword) {
+    Prism.languages.sql.keyword = [currentKeyword, sparkKeywords] as any;
+  } else {
+    Prism.languages.sql.keyword = sparkKeywords;
+  }
+}
+
 // Fix for potentially incompatible default exports in production builds
 const CodeEditor = (Editor as any).default || Editor;
 

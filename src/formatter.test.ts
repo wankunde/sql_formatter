@@ -102,4 +102,12 @@ describe('SQL Formatter Integrity', () => {
     const formatted = formatSql(sql, defaultConfig);
     expect(formatted).toContain('AS (');
   });
+
+  it('should keep complex expressions on a single line if under wrap limit', () => {
+    // Let's test an expression with a comma inside.
+    const sql = `SELECT a, b, datediff(t2.date, t1.date) AS diff FROM t`;
+    const formatted = formatSql(sql, { ...defaultConfig, selectFieldWrapLimit: 5 });
+    // It should break at top-level commas, but NOT inside datediff
+    expect(formatted).toContain('datediff(t2.date, t1.date) AS diff');
+  });
 });

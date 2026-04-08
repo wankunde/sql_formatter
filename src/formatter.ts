@@ -143,11 +143,11 @@ export function formatSql(sql: string, config: FormatterConfig): string {
         const wrapIndent = config.alignKeywords ? ALIGN_WIDTH - 2 : config.indentSize; // ON is 2 chars, aligns to 6 with 4 spaces
         result = result.trimEnd() + "\n" + getIndent() + " ".repeat(Math.max(0, wrapIndent));
         prefix = "";
-      } else if (token === ',' && (currentClause === 'GROUP BY' || currentClause === 'ORDER BY')) {
+      } else if (token === ',' && (currentClause === 'GROUP BY' || currentClause === 'ORDER BY') && !parenStack.some(p => p.type === 'expression')) {
         const wrapIndent = config.alignKeywords ? ALIGN_WIDTH + 1 : config.indentSize;
         result = result.trimEnd() + ",\n" + getIndent() + " ".repeat(wrapIndent);
         skipFinalAdd = true;
-      } else if (currentClause === 'SELECT' && token === ',') {
+      } else if (currentClause === 'SELECT' && token === ',' && !parenStack.some(p => p.type === 'expression')) {
         const lastLine = result.split('\n').pop() || "";
         if (lastLine.length > config.selectFieldWrapLimit) {
           const wrapIndent = config.alignKeywords ? ALIGN_WIDTH + 1 : config.indentSize;
