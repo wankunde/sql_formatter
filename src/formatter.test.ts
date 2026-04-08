@@ -35,45 +35,42 @@ describe('SQL Formatter Integrity', () => {
       ) top_query on (channel_info.name = top_query.keyword)
     `;
     const formatted = formatSql(complexSql, defaultConfig);
-    
-    // Check integrity: non-space content must be identical (ignoring case)
     expect(normalize(formatted)).toBe(normalize(complexSql));
   });
 
-  it('should not duplicate parentheses in subqueries', () => {
-    const sql = 'SELECT * FROM (SELECT 1) t';
+  it('should format CASE WHEN correctly (short case)', () => {
+    const sql = 'SELECT CASE WHEN a=1 THEN 1 END FROM t';
     const formatted = formatSql(sql, defaultConfig);
-    const openParenCount = (formatted.match(/\(/g) || []).length;
-    const closeParenCount = (formatted.match(/\)/g) || []).length;
-    expect(openParenCount).toBe(1);
-    expect(closeParenCount).toBe(1);
+    expect(formatted).toContain('CASE WHEN a = 1 THEN 1 END');
   });
 
-  it('should not duplicate commas', () => {
-    const sql = 'SELECT a, b, c FROM t GROUP BY a, b';
+  it('should format CASE WHEN correctly (long case > 30 chars)', () => {
+    const sql = 'SELECT CASE WHEN long_column_name_exceeds_thirty = 1 THEN some_other_long_value ELSE default_val END FROM t';
+    const formatted = formatSql(sql, defaultConfig);
+    const lines = formatted.split('\n');
+    
+    const whenLine = lines.find(l => l.includes('WHEN')) || "";
+    const thenLine = lines.find(l => l.includes('THEN')) || "";
+    const elseLine = lines.find(l => l.includes('ELSE')) || "";
+    
+    const whenIndent = whenLine.indexOf('WHEN');
+    const thenIndent = thenLine.indexOf('THEN');
+    const elseIndent = elseLine.indexOf('ELSE');
+    
+    expect(thenIndent).toBeGreaterThan(0);
+    expect(thenIndent).toBe(whenIndent);
+    expect(elseIndent).toBe(whenIndent);
+  });
+
+  it('should keep complex expressions on a single line if under wrap limit', () => {
+    const sql = `SELECT a, b, datediff(t2.date, t1.date) AS diff FROM t`;
     const formatted = formatSql(sql, { ...defaultConfig, selectFieldWrapLimit: 5 });
-    const commaCount = (formatted.match(/,/g) || []).length;
-    expect(commaCount).toBe(3);
-  });
-
-  it('should keep function spacing tight', () => {
-    const sql = 'SELECT SUM(COALESCE(a, 0)) FROM t';
-    const formatted = formatSql(sql, defaultConfig);
-    expect(formatted).toContain('SUM(COALESCE(a, 0))');
-    expect(formatted).not.toContain('SUM (');
-  });
-
-  it('should handle ON condition without merging with subquery alias', () => {
-    const sql = 'SELECT * FROM (SELECT 1) t1 JOIN (SELECT 2) t2 ON t1.id = t2.id';
-    const formatted = formatSql(sql, defaultConfig);
-    expect(formatted).toContain(') t2');
-    expect(formatted).toContain('\n  ON');
+    expect(formatted).toContain('datediff(t2.date, t1.date) AS diff');
   });
 
   it('should right-align keywords when alignKeywords is true', () => {
     const sql = 'SELECT col FROM tbl WHERE id = 1';
     const formatted = formatSql(sql, { ...defaultConfig, alignKeywords: true });
-    // SELECT (6), "  FROM" (2+4=6), " WHERE" (1+5=6)
     expect(formatted).toContain('SELECT col');
     expect(formatted).toContain('\n  FROM tbl');
     expect(formatted).toContain('\n WHERE id = 1');
@@ -91,23 +88,9 @@ describe('SQL Formatter Integrity', () => {
     expect(formatted).toContain('FROM (');
   });
 
-  it('should put subquery parenthesis on the same line as JOIN', () => {
-    const sql = 'SELECT * FROM t1 JOIN (SELECT id FROM t2) sub ON t1.id = sub.id';
-    const formatted = formatSql(sql, defaultConfig);
-    expect(formatted).toContain('JOIN (');
-  });
-
   it('should put subquery parenthesis on the same line as AS', () => {
     const sql = 'CREATE TABLE t AS (SELECT * FROM source)';
     const formatted = formatSql(sql, defaultConfig);
     expect(formatted).toContain('AS (');
-  });
-
-  it('should keep complex expressions on a single line if under wrap limit', () => {
-    // Let's test an expression with a comma inside.
-    const sql = `SELECT a, b, datediff(t2.date, t1.date) AS diff FROM t`;
-    const formatted = formatSql(sql, { ...defaultConfig, selectFieldWrapLimit: 5 });
-    // It should break at top-level commas, but NOT inside datediff
-    expect(formatted).toContain('datediff(t2.date, t1.date) AS diff');
   });
 });

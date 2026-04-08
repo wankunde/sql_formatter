@@ -16,9 +16,10 @@ export function formatSql(sql: string, config: FormatterConfig): string {
   let lastToken = "";
   
   const parenStack: { type: 'subquery' | 'expression', indent: number }[] = [];
+  const caseStack: { startPos: number, isLong: boolean, indent: number, whenIndent: number }[] = [];
+
   const getIndent = (extra = 0) => " ".repeat(Math.max(0, indentLevel + extra) * config.indentSize);
   
-  // Keywords that often start a new line and can be aligned
   const alignableKeywords = new Set([
     'SELECT', 'FROM', 'WHERE', 'JOIN', 'LEFT', 'RIGHT', 'INNER', 'OUTER', 'GROUP', 'ORDER', 'LIMIT', 'OFFSET', 'HAVING', 'ON', 'UNION', 'VALUES', 'INSERT', 'UPDATE', 'CREATE'
   ]);
@@ -34,7 +35,7 @@ export function formatSql(sql: string, config: FormatterConfig): string {
     'SUBSTR', 'UPPER', 'LOWER', 'NOW', 'DATE', 'YEAR', 'MONTH', 'DAY', 'ABS', 'CEIL', 'FLOOR', 'TRIM', 'SIZE', 'SPLIT'
   ]);
 
-  const ALIGN_WIDTH = 6; // Target width for SELECT alignment
+  const ALIGN_WIDTH = 6; 
 
   for (let i = 0; i < tokens.length; i++) {
     let token = tokens[i];
@@ -68,6 +69,27 @@ export function formatSql(sql: string, config: FormatterConfig): string {
     let prefix = " ";
     let skipFinalAdd = false;
 
+    // CASE WHEN logic
+    if (upperToken === 'CASE') {
+      let caseLength = 0;
+      let depth = 0;
+      for (let j = i; j < tokens.length; j++) {
+        caseLength += tokens[j].length + 1;
+        if (tokens[j].toUpperCase() === 'CASE') depth++;
+        if (tokens[j].toUpperCase() === 'END') depth--;
+        if (depth === 0) break;
+      }
+      
+      const currentLine = result.split('\n').pop() || "";
+      // whenIndent points to where WHEN will be if CASE is followed by space + WHEN
+      caseStack.push({ 
+        startPos: i, 
+        isLong: caseLength > 30, 
+        indent: indentLevel,
+        whenIndent: currentLine.length + prefix.length + 5 // +5 for "CASE "
+      });
+    }
+
     // Core Formatting Logic
     if (token === '(') {
       const isSubquery = nextToken === 'SELECT';
@@ -87,13 +109,8 @@ export function formatSql(sql: string, config: FormatterConfig): string {
         const lastUpper = lastToken.toUpperCase();
         const isKeyword = keywords.has(lastUpper);
         const isFunction = functions.has(lastUpper);
-        
-        // Remove space for functions or normal identifiers (likely custom functions)
-        // But KEEP space for structural keywords like ON, WHERE, etc.
         if (lastToken.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
-          if (isFunction || !isKeyword) {
-            prefix = ""; 
-          }
+          if (isFunction || !isKeyword) prefix = ""; 
         }
       }
     } else if (token === ')') {
@@ -105,42 +122,50 @@ export function formatSql(sql: string, config: FormatterConfig): string {
       } else {
         prefix = "";
       }
+    } else if (upperToken === 'WHEN' || upperToken === 'THEN' || upperToken === 'ELSE' || upperToken === 'END') {
+      const currentCase = caseStack[caseStack.length - 1];
+      if (currentCase && currentCase.isLong) {
+        if (upperToken === 'WHEN') {
+          if (lastToken.toUpperCase() !== 'CASE') {
+            result = result.trimEnd() + "\n" + " ".repeat(currentCase.whenIndent);
+            prefix = "";
+          }
+        } else if (upperToken === 'THEN' || upperToken === 'ELSE') {
+          result = result.trimEnd() + "\n" + " ".repeat(currentCase.whenIndent);
+          prefix = "";
+        } else if (upperToken === 'END') {
+          caseStack.pop();
+        }
+      } else if (upperToken === 'END') {
+        caseStack.pop();
+      }
     } else {
       const isNewClause = alignableKeywords.has(upperToken);
       const isJoinKeyword = ['LEFT', 'RIGHT', 'INNER', 'OUTER', 'FULL', 'JOIN'].includes(upperToken);
 
       if (isNewClause && result !== "") {
-        // Prevent breaking "GROUP BY" or "LEFT JOIN" mid-phrase
         if (!((upperToken === 'BY' && (lastToken.toUpperCase() === 'GROUP' || lastToken.toUpperCase() === 'ORDER')) ||
               (isJoinKeyword && ['LEFT', 'RIGHT', 'INNER', 'OUTER', 'FULL'].includes(lastToken.toUpperCase())))) {
           
           result = result.trimEnd() + "\n" + getIndent();
-          
           if (config.alignKeywords) {
-            // Apply right-alignment for keywords within the indent block
             let fullKeyword = upperToken;
             if (upperToken === 'GROUP' || upperToken === 'ORDER') {
                if (nextToken === 'BY') fullKeyword = upperToken + ' BY';
             }
-            if (isJoinKeyword) {
-               // Handle multi-word joins if necessary, but keep it simple for now
-            }
-            
             const padding = Math.max(0, ALIGN_WIDTH - fullKeyword.length);
             result += " ".repeat(padding);
           }
-          
           prefix = "";
         }
       }
 
-      // Clause specific breaks
       if ((currentClause === 'WHERE' || currentClause === 'HAVING') && (upperToken === 'AND' || upperToken === 'OR') && config.newlineWhere) {
         const wrapIndent = config.alignKeywords ? ALIGN_WIDTH + 1 : config.indentSize;
         result = result.trimEnd() + "\n" + getIndent() + " ".repeat(wrapIndent);
         prefix = "";
       } else if (upperToken === 'ON' && config.newlineJoin) {
-        const wrapIndent = config.alignKeywords ? ALIGN_WIDTH - 2 : config.indentSize; // ON is 2 chars, aligns to 6 with 4 spaces
+        const wrapIndent = config.alignKeywords ? ALIGN_WIDTH - 2 : config.indentSize; 
         result = result.trimEnd() + "\n" + getIndent() + " ".repeat(Math.max(0, wrapIndent));
         prefix = "";
       } else if (token === ',' && (currentClause === 'GROUP BY' || currentClause === 'ORDER BY') && !parenStack.some(p => p.type === 'expression')) {
