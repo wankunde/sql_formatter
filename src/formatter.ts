@@ -142,7 +142,12 @@ export function formatSql(sql: string, config: FormatterConfig): string {
         caseStack.pop();
       }
     } else {
-      const isAlignable = alignableKeywords.has(upperToken);
+      const isLogicalConnector = upperToken === 'AND' || upperToken === 'OR';
+      const shouldAlignLogicalConnector =
+        isLogicalConnector &&
+        caseStack.length === 0 &&
+        (currentClause === 'WHERE' || currentClause === 'HAVING');
+      const isAlignable = alignableKeywords.has(upperToken) && (!isLogicalConnector || shouldAlignLogicalConnector);
       if (isAlignable && result !== "") {
         result = result.trimEnd() + "\n" + getIndent();
         if (config.alignKeywords) {

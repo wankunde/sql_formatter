@@ -86,4 +86,26 @@ describe('SQL Formatter - Full Regression Suite', () => {
     const formatted = formatSql(sql, defaultConfig);
     expect(formatted).toContain('a <= 1');
   });
+
+  it('should not align CASE WHEN inner AND at SELECT clause level', () => {
+    const sql = `
+      SELECT CASE
+        WHEN get_json_object(av_feature, '$.operate_ogv_flag') != ''
+             AND card_type IN ('bangumi', 'bangumi_op')
+          THEN '托管流量'
+        WHEN get_json_object(av_feature, '$.ogv_new_hot_flag') != ''
+             AND card_type IN ('bangumi', 'bangumi_op')
+          THEN '项目流量'
+        ELSE '自然流量'
+      END AS card_type
+    `;
+
+    const formatted = formatSql(sql, defaultConfig);
+    const hasTopLevelAndLine = formatted
+      .split('\n')
+      .some((line) => line.startsWith('AND'));
+
+    expect(hasTopLevelAndLine).toBe(false);
+    expect(formatted).toContain("!= '' AND card_type IN ('bangumi', 'bangumi_op')");
+  });
 });
