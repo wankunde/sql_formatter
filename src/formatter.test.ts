@@ -96,4 +96,10 @@ describe('SQL Formatter Integrity', () => {
     const formatted = formatSql(sql, defaultConfig);
     expect(formatted).toContain('JOIN (');
   });
+
+  it('should put subquery parenthesis on the same line as AS', () => {
+    const sql = 'CREATE TABLE t AS (SELECT * FROM source)';
+    const formatted = formatSql(sql, defaultConfig);
+    expect(formatted).toContain('AS (');
+  });
 });

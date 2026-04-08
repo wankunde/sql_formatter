@@ -74,7 +74,7 @@ export function formatSql(sql: string, config: FormatterConfig): string {
       if (isSubquery) {
         parenStack.push({ type: 'subquery', indent: indentLevel });
         const lastUpper = lastToken.toUpperCase();
-        if (lastUpper === 'FROM' || lastUpper === 'JOIN') {
+        if (lastUpper === 'FROM' || lastUpper === 'JOIN' || lastUpper === 'AS') {
           result = result.trimEnd() + " (";
         } else {
           result = result.trimEnd() + "\n" + getIndent() + "(";
