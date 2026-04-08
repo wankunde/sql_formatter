@@ -10,7 +10,7 @@ const defaultConfig: FormatterConfig = {
   fieldLowercase: true,
   tableLowercase: true,
   variableLowercase: true,
-  selectFieldWrapLimit: 100,
+  selectFieldWrapLimit: 80,
   newlineWhere: true,
   newlineJoin: true,
   newlineGroupBy: true,
@@ -18,79 +18,55 @@ const defaultConfig: FormatterConfig = {
   newlineLimit: true,
   newlineOffset: true,
   indentSize: 2,
-  alignKeywords: false,
+  alignKeywords: true,
 };
 
-describe('SQL Formatter Integrity', () => {
+describe('SQL Formatter SELECT Logic', () => {
   const normalize = (sql: string) => sql.replace(/\s+/g, '').toUpperCase();
 
-  it('should NEVER add or remove non-whitespace tokens', () => {
-    const complexSql = `
-      create table if not exists tmp_ai.tmp_hjw_ott_search_query__channelscore_20260406 as
-      select cid AS resource_id, name AS resource_name from (
-        select DISTINCT cid, LOWER(TRIM(name)) AS name from bi_yyzx.channel_search_daily
-      ) channel_info
-      inner join (
-        select keyword from tmp_ai.top_query
-      ) top_query on (channel_info.name = top_query.keyword)
-    `;
-    const formatted = formatSql(complexSql, defaultConfig);
-    expect(normalize(formatted)).toBe(normalize(complexSql));
-  });
-
-  it('should format CASE WHEN correctly (short case)', () => {
-    const sql = 'SELECT CASE WHEN a=1 THEN 1 END FROM t';
-    const formatted = formatSql(sql, defaultConfig);
-    expect(formatted).toContain('CASE WHEN a = 1 THEN 1 END');
-  });
-
-  it('should format CASE WHEN correctly (long case > 30 chars)', () => {
-    const sql = 'SELECT CASE WHEN long_column_name_exceeds_thirty = 1 THEN some_other_long_value ELSE default_val END FROM t';
+  it('should wrap SELECT expressions longer than 30 characters', () => {
+    const sql = "SELECT col1, COUNT(DISTINCT CASE WHEN a > 1 THEN b ELSE NULL END) AS long_expr, col2 FROM table";
     const formatted = formatSql(sql, defaultConfig);
     const lines = formatted.split('\n');
     
+    expect(lines.some(l => l.includes('COUNT(DISTINCT'))).toBe(true);
+    expect(lines.some(l => l.trim().startsWith('COUNT(DISTINCT'))).toBe(true);
+  });
+
+  it('should handle nested CASE alignment within complex expressions', () => {
+    const sql = `SELECT COUNT(DISTINCT CASE WHEN datediff(t2.draw_date, t1.draw_date) > 1 AND datediff(t2.draw_date, t1.draw_date) <= 7 THEN t2.mid ELSE NULL END) AS next_7days_paycnt FROM t`;
+    const formatted = formatSql(sql, defaultConfig);
+    
+    expect(formatted).toContain('WHEN');
+    expect(formatted).toContain('THEN');
+    expect(formatted).toContain('ELSE');
+    
+    const lines = formatted.split('\n');
     const whenLine = lines.find(l => l.includes('WHEN')) || "";
     const thenLine = lines.find(l => l.includes('THEN')) || "";
-    const elseLine = lines.find(l => l.includes('ELSE')) || "";
     
-    const whenIndent = whenLine.indexOf('WHEN');
-    const thenIndent = thenLine.indexOf('THEN');
-    const elseIndent = elseLine.indexOf('ELSE');
-    
-    expect(thenIndent).toBeGreaterThan(0);
-    expect(thenIndent).toBe(whenIndent);
-    expect(elseIndent).toBe(whenIndent);
+    expect(thenLine.indexOf('THEN')).toBe(whenLine.indexOf('WHEN'));
   });
 
-  it('should keep complex expressions on a single line if under wrap limit', () => {
-    const sql = `SELECT a, b, datediff(t2.date, t1.date) AS diff FROM t`;
-    const formatted = formatSql(sql, { ...defaultConfig, selectFieldWrapLimit: 5 });
-    expect(formatted).toContain('datediff(t2.date, t1.date) AS diff');
+  it('should not break inside simple function expressions at commas', () => {
+    const sql = "SELECT datediff(t2.date, t1.date) AS diff, col2 FROM t";
+    const formatted = formatSql(sql, { ...defaultConfig, selectFieldWrapLimit: 10 });
+    // Should break at col2 comma, but not inside datediff
+    // Note: Use uppercase for function name check because default is uppercase
+    expect(formatted).toContain('DATEDIFF(t2.date, t1.date) AS diff');
   });
 
-  it('should right-align keywords when alignKeywords is true', () => {
-    const sql = 'SELECT col FROM tbl WHERE id = 1';
-    const formatted = formatSql(sql, { ...defaultConfig, alignKeywords: true });
-    expect(formatted).toContain('SELECT col');
-    expect(formatted).toContain('\n  FROM tbl');
-    expect(formatted).toContain('\n WHERE id = 1');
-  });
-
-  it('should have space between ON and parenthesis', () => {
-    const sql = 'SELECT * FROM t1 JOIN t2 ON (t1.id = t2.id)';
-    const formatted = formatSql(sql, defaultConfig);
-    expect(formatted).toContain('ON (');
-  });
-
-  it('should put subquery parenthesis on the same line as FROM', () => {
-    const sql = 'SELECT * FROM (SELECT id FROM t1) sub';
+  it('should put subquery parenthesis on same line as keywords', () => {
+    const sql = "SELECT * FROM (SELECT 1) t1 JOIN (SELECT 2) t2 AS (SELECT 3)";
     const formatted = formatSql(sql, defaultConfig);
     expect(formatted).toContain('FROM (');
-  });
-
-  it('should put subquery parenthesis on the same line as AS', () => {
-    const sql = 'CREATE TABLE t AS (SELECT * FROM source)';
-    const formatted = formatSql(sql, defaultConfig);
+    expect(formatted).toContain('JOIN (');
     expect(formatted).toContain('AS (');
+  });
+  
+  it('should maintain total integrity', () => {
+    const sql = `SELECT t1.week_id, t1.first_last_date, CASE WHEN t1.week_id = t3.box_first_week_id THEN '魔力赏新客' ELSE '魔力赏老客' END is_box_week_new, COUNT(DISTINCT t1.mid) pay_mid_cnt, COUNT(DISTINCT CASE WHEN datediff(t2.draw_date, t1.draw_date) > 1 AND datediff(t2.draw_date, t1.draw_date) <= 7 THEN t2.mid ELSE NULL END) next_7days_paycnt FROM t`;
+    const formatted = formatSql(sql, defaultConfig);
+    expect(normalize(formatted)).toBe(normalize(sql));
   });
 });

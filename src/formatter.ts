@@ -32,7 +32,7 @@ export function formatSql(sql: string, config: FormatterConfig): string {
 
   const functions = new Set([
     'COUNT', 'SUM', 'AVG', 'MIN', 'MAX', 'CAST', 'COALESCE', 'IFNULL', 'CONCAT', 
-    'SUBSTR', 'UPPER', 'LOWER', 'NOW', 'DATE', 'YEAR', 'MONTH', 'DAY', 'ABS', 'CEIL', 'FLOOR', 'TRIM', 'SIZE', 'SPLIT'
+    'SUBSTR', 'UPPER', 'LOWER', 'NOW', 'DATE', 'YEAR', 'MONTH', 'DAY', 'ABS', 'CEIL', 'FLOOR', 'TRIM', 'SIZE', 'SPLIT', 'DATEDIFF'
   ]);
 
   const ALIGN_WIDTH = 6; 
@@ -43,7 +43,7 @@ export function formatSql(sql: string, config: FormatterConfig): string {
     const nextToken = tokens[i+1]?.toUpperCase();
 
     // Identify Clause
-    if (['SELECT', 'FROM', 'WHERE', 'JOIN', 'GROUP', 'ORDER', 'LIMIT', 'OFFSET', 'HAVING', 'INSERT', 'UPDATE', 'CREATE'].includes(upperToken)) {
+    if (alignableKeywords.has(upperToken)) {
       currentClause = upperToken;
       if (upperToken === 'GROUP' || upperToken === 'ORDER') {
         if (nextToken === 'BY') currentClause = upperToken + ' BY';
@@ -81,12 +81,16 @@ export function formatSql(sql: string, config: FormatterConfig): string {
       }
       
       const currentLine = result.split('\n').pop() || "";
-      // whenIndent points to where WHEN will be if CASE is followed by space + WHEN
+      let whenIndentPos = currentLine.length + prefix.length + 5; 
+      if (result.endsWith('\n') || result === "") {
+         whenIndentPos = getIndent().length + (config.alignKeywords ? ALIGN_WIDTH + 1 : 0) + 5;
+      }
+
       caseStack.push({ 
         startPos: i, 
         isLong: caseLength > 30, 
         indent: indentLevel,
-        whenIndent: currentLine.length + prefix.length + 5 // +5 for "CASE "
+        whenIndent: whenIndentPos
       });
     }
 
@@ -127,11 +131,11 @@ export function formatSql(sql: string, config: FormatterConfig): string {
       if (currentCase && currentCase.isLong) {
         if (upperToken === 'WHEN') {
           if (lastToken.toUpperCase() !== 'CASE') {
-            result = result.trimEnd() + "\n" + " ".repeat(currentCase.whenIndent);
+            result = result.trimEnd() + "\n" + " ".repeat(currentCase.whenIndent - 5);
             prefix = "";
           }
         } else if (upperToken === 'THEN' || upperToken === 'ELSE') {
-          result = result.trimEnd() + "\n" + " ".repeat(currentCase.whenIndent);
+          result = result.trimEnd() + "\n" + " ".repeat(currentCase.whenIndent - 5) + "     ";
           prefix = "";
         } else if (upperToken === 'END') {
           caseStack.pop();
@@ -160,6 +164,7 @@ export function formatSql(sql: string, config: FormatterConfig): string {
         }
       }
 
+      // Clause specific breaks
       if ((currentClause === 'WHERE' || currentClause === 'HAVING') && (upperToken === 'AND' || upperToken === 'OR') && config.newlineWhere) {
         const wrapIndent = config.alignKeywords ? ALIGN_WIDTH + 1 : config.indentSize;
         result = result.trimEnd() + "\n" + getIndent() + " ".repeat(wrapIndent);
@@ -172,12 +177,34 @@ export function formatSql(sql: string, config: FormatterConfig): string {
         const wrapIndent = config.alignKeywords ? ALIGN_WIDTH + 1 : config.indentSize;
         result = result.trimEnd() + ",\n" + getIndent() + " ".repeat(wrapIndent);
         skipFinalAdd = true;
-      } else if (currentClause === 'SELECT' && token === ',' && !parenStack.some(p => p.type === 'expression')) {
-        const lastLine = result.split('\n').pop() || "";
-        if (lastLine.length > config.selectFieldWrapLimit) {
-          const wrapIndent = config.alignKeywords ? ALIGN_WIDTH + 1 : config.indentSize;
-          result = result.trimEnd() + ",\n" + getIndent() + " ".repeat(wrapIndent);
-          skipFinalAdd = true;
+      } else if (currentClause === 'SELECT' && (upperToken === 'SELECT' || (token === ',' && !parenStack.some(p => p.type === 'expression')))) {
+        // Calculate next expression length
+        let nextExprLength = 0;
+        let pDepth = 0;
+        let startIndex = (token === ',') ? i + 1 : i + 1;
+        if (upperToken === 'SELECT' && tokens[i+1]?.toUpperCase() === 'DISTINCT') startIndex++;
+
+        for (let j = startIndex; j < tokens.length; j++) {
+          const t = tokens[j].toUpperCase();
+          if (pDepth === 0 && (t === ',' || alignableKeywords.has(t))) break;
+          if (t === '(') pDepth++;
+          if (t === ')') pDepth--;
+          nextExprLength += tokens[j].length + 1;
+        }
+
+        const wrapIndent = config.alignKeywords ? ALIGN_WIDTH + 1 : config.indentSize;
+        
+        if (token === ',') {
+          if (nextExprLength > 30) {
+            result = result.trimEnd() + ",\n" + getIndent() + " ".repeat(wrapIndent);
+            skipFinalAdd = true;
+          } else {
+            const lastLine = result.split('\n').pop() || "";
+            if (lastLine.length + nextExprLength > config.selectFieldWrapLimit) {
+              result = result.trimEnd() + ",\n" + getIndent() + " ".repeat(wrapIndent);
+              skipFinalAdd = true;
+            }
+          }
         }
       }
     }
@@ -191,7 +218,7 @@ export function formatSql(sql: string, config: FormatterConfig): string {
     lastToken = token;
   }
 
-  // 5. Cleanup
+  // Final Cleanup
   if (config.noTabs) result = result.replace(/\t/g, " ".repeat(config.indentSize));
   if (config.noEmptyLines) {
     result = result.split('\n').map(l => l.trimEnd()).filter(l => l.length > 0).join('\n');
