@@ -122,4 +122,17 @@ describe('SQL Formatter - Full Regression Suite', () => {
     // Check if THEN is aligned under WHEN
     expect(thenLine.indexOf('THEN')).toBe(whenLine.indexOf('WHEN'));
   });
+
+  it('should not add space between operator characters like <=, >=, !=', () => {
+    const sql = 'SELECT * FROM t WHERE a <= 1 AND b >= 2 AND c != 3 AND d <> 4';
+    const formatted = formatSql(sql, defaultConfig);
+    expect(formatted).toContain('a <= 1');
+    expect(formatted).toContain('b >= 2');
+    expect(formatted).toContain('c != 3');
+    expect(formatted).toContain('d <> 4');
+    expect(formatted).not.toContain('< =');
+    expect(formatted).not.toContain('> =');
+    expect(formatted).not.toContain('! =');
+    expect(formatted).not.toContain('< >');
+  });
 });

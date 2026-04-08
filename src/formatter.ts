@@ -7,7 +7,7 @@ export function formatSql(sql: string, config: FormatterConfig): string {
   const tokens = sql
     .replace(/\s+/g, ' ')
     .trim()
-    .split(/([,()=<>!+\-*/%|&^~;])|\s+/)
+    .split(/(<=|>=|!=|<>|[,()=<>!+\-*/%|&^~;])|\s+/)
     .filter(t => t && t.trim().length > 0);
 
   let result = "";
