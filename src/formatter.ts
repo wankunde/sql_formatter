@@ -1,10 +1,64 @@
 import type { FormatterConfig } from './store/useConfigStore';
 
+function extractLineComments(sql: string) {
+  let normalizedSql = '';
+  const comments = new Map<string, string>();
+  let commentIndex = 0;
+  let i = 0;
+  let inSingleQuote = false;
+
+  while (i < sql.length) {
+    const char = sql[i];
+    const nextChar = sql[i + 1];
+
+    if (char === "'") {
+      normalizedSql += char;
+      if (inSingleQuote && nextChar === "'") {
+        normalizedSql += nextChar;
+        i += 2;
+        continue;
+      }
+      inSingleQuote = !inSingleQuote;
+      i++;
+      continue;
+    }
+
+    if (!inSingleQuote && char === '-' && nextChar === '-') {
+      let j = i;
+      while (j < sql.length && sql[j] !== '\n') {
+        j++;
+      }
+      const comment = sql.slice(i, j).trimEnd();
+      const token = `@@SQLFMT_COMMENT_${commentIndex}@@`;
+      comments.set(token, comment);
+      normalizedSql += ` ${token} `;
+      if (j < sql.length && sql[j] === '\n') {
+        normalizedSql += '\n';
+        j++;
+      }
+      i = j;
+      commentIndex++;
+      continue;
+    }
+
+    normalizedSql += char;
+    i++;
+  }
+
+  return { normalizedSql, comments };
+}
+
+function isCommentToken(token: string) {
+  return token.startsWith('@@SQLFMT_COMMENT_') && token.endsWith('@@');
+}
+
 export function formatSql(sql: string, config: FormatterConfig): string {
   if (!sql.trim()) return "";
 
+  const { normalizedSql, comments } = extractLineComments(sql);
+
   // 1. Tokenize the SQL with multi-character operator support
-  const tokens = sql
+  const tokens = normalizedSql
     .replace(/\s+/g, ' ')
     .trim()
     .split(/(<=|>=|!=|<>|[,()=<>!+\-*/%|&^~;])|\s+/)
@@ -94,7 +148,16 @@ export function formatSql(sql: string, config: FormatterConfig): string {
     }
 
     // Core Formatting Logic
-    if (token === '(') {
+    if (isCommentToken(token)) {
+      const commentText = comments.get(token) ?? '--';
+      result = result.trimEnd();
+      result += `  ${commentText}\n${getIndent()}`;
+      if (config.alignKeywords && currentClause === 'SELECT') {
+        result += " ".repeat(ALIGN_WIDTH + 1);
+      }
+      skipFinalAdd = true;
+      prefix = "";
+    } else if (token === '(') {
       const isSubquery = nextUpper === 'SELECT';
       if (isSubquery) {
         parenStack.push({ type: 'subquery', indent: indentLevel });
@@ -156,6 +219,11 @@ export function formatSql(sql: string, config: FormatterConfig): string {
         }
         prefix = "";
       } else if (token === ',' && !parenStack.some(p => p.type === 'expression')) {
+        const hasTrailingComment = isCommentToken(tokens[i + 1] ?? "");
+        if (hasTrailingComment) {
+          // Keep "," on the current expression line; the following comment token
+          // will append itself to the same line and then force a line break.
+        } else {
         const wrapIndent = config.alignKeywords ? ALIGN_WIDTH + 1 : config.indentSize;
         if (currentClause === 'SELECT') {
           let nextExprLength = 0;
@@ -174,6 +242,7 @@ export function formatSql(sql: string, config: FormatterConfig): string {
         } else if (currentClause === 'GROUP BY' || currentClause === 'ORDER BY') {
           result = result.trimEnd() + ",\n" + getIndent() + " ".repeat(wrapIndent);
           skipFinalAdd = true;
+        }
         }
       }
     }

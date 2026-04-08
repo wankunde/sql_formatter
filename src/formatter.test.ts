@@ -108,4 +108,35 @@ describe('SQL Formatter - Full Regression Suite', () => {
     expect(hasTopLevelAndLine).toBe(false);
     expect(formatted).toContain("!= '' AND card_type IN ('bangumi', 'bangumi_op')");
   });
+
+  it('should preserve end-of-line comments for SELECT expressions', () => {
+    const sql = `
+      select
+        sum(played_time) as played_time,  -- 总时长
+        sum(if(played_time>=10,1,0)) as vv_10s, -- 10秒vv
+        sum(if(played_time>=60,1,0)) as vv_60s, -- 60秒vv
+        sum(if(played_time<3,1,0)) as vv_rush, -- 3秒秒退
+        sum(1) as vv -- vv
+      from t
+    `;
+
+    const formatted = formatSql(sql, defaultConfig);
+    const lines = formatted.split('\n');
+    const totalDurationLine = lines.find((line) => line.includes('-- 总时长')) ?? '';
+    const vv10Line = lines.find((line) => line.includes('-- 10秒vv')) ?? '';
+    const vv60Line = lines.find((line) => line.includes('-- 60秒vv')) ?? '';
+    const rushLine = lines.find((line) => line.includes('-- 3秒秒退')) ?? '';
+    const vvLine = lines.find((line) => line.includes('-- vv')) ?? '';
+
+    expect(totalDurationLine).toContain('played_time,  -- 总时长');
+    expect(vv10Line).toContain('vv_10s,  -- 10秒vv');
+    expect(vv60Line).toContain('vv_60s,  -- 60秒vv');
+    expect(rushLine).toContain('vv_rush,  -- 3秒秒退');
+    expect(vvLine).toContain('AS vv  -- vv');
+
+    const vv10Index = lines.findIndex((line) => line.includes('vv_10s'));
+    const vv60Index = lines.findIndex((line) => line.includes('vv_60s'));
+    expect(vv10Index).toBeGreaterThan(-1);
+    expect(vv60Index).toBeGreaterThan(vv10Index);
+  });
 });
